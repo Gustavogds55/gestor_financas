@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro — Finanças</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1>💰 Criar conta</h1>
+      <p class="subtitle">Preencha os dados para se cadastrar</p>
+
+      <div id="msg" class="msg"></div>
+
+      <form id="form-register">
+        <div class="form-group">
+          <label for="name">Nome</label>
+          <input type="text" id="name" placeholder="Seu nome" required />
+        </div>
+        <div class="form-group">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" placeholder="seu@email.com" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Senha <small style="font-weight:400">(mín. 8 caracteres)</small></label>
+          <input type="password" id="password" placeholder="••••••••" required minlength="8" />
+        </div>
+        <div class="form-group">
+          <label for="confirm">Confirmar senha</label>
+          <input type="password" id="confirm" placeholder="••••••••" required />
+        </div>
+        <button type="submit" class="btn btn-primary" id="btn-submit">Criar conta</button>
+      </form>
+
+      <p style="text-align:center; margin-top:20px; font-size:.9rem; color:var(--muted)">
+        Já tem conta? <a href="login.html">Entrar</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    if (localStorage.getItem('token')) location.href = 'dashboard.html';
+
+    document.getElementById('form-register').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('btn-submit');
+      const msg = document.getElementById('msg');
+      msg.className = 'msg';
+
+      const password = document.getElementById('password').value;
+      const confirm  = document.getElementById('confirm').value;
+
+      if (password !== confirm) {
+        msg.textContent = 'As senhas não coincidem.';
+        msg.className = 'msg error';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Criando...';
+
+      try {
+        await api.post('/auth/register', {
+          name:     document.getElementById('name').value,
+          email:    document.getElementById('email').value,
+          password,
+        });
+
+        msg.textContent = 'Conta criada! Redirecionando para o login...';
+        msg.className = 'msg success';
+        setTimeout(() => location.href = 'login.html', 1500);
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = 'msg error';
+        btn.disabled = false;
+        btn.textContent = 'Criar conta';
+      }
+    });
+  </script>
+</body>
+</html>

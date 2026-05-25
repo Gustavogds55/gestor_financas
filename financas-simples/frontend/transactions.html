@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movimentações — Finanças</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">💰 Finanças</div>
+      <div class="sidebar-user">
+        Olá, <strong id="user-name">...</strong>
+      </div>
+      <nav>
+        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="transactions.html" class="active">📋 Movimentações</a>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn btn-outline" style="width:100%" onclick="logout()">Sair</button>
+      </div>
+    </aside>
+
+    <!-- Conteúdo -->
+    <main class="main-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+        <h1 class="page-title" style="margin:0">Movimentações</h1>
+        <button class="btn btn-primary" style="width:auto" onclick="openModal()">+ Nova</button>
+      </div>
+
+      <!-- Filtros -->
+      <div class="filtros">
+        <label>Mês
+          <input type="month" id="filtro-mes" />
+        </label>
+        <label>Tipo
+          <select id="filtro-tipo">
+            <option value="">Todos</option>
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+          </select>
+        </label>
+        <label>Categoria
+          <select id="filtro-categoria">
+            <option value="">Todas</option>
+            <optgroup label="Entradas">
+              <option>Salário</option>
+              <option>Extra</option>
+              <option>Reembolso</option>
+            </optgroup>
+            <optgroup label="Despesas">
+              <option>Mercado</option>
+              <option>Transporte</option>
+              <option>Casa</option>
+              <option>Internet</option>
+              <option>Lazer</option>
+              <option>Saúde</option>
+              <option>Restaurante</option>
+              <option>Carro</option>
+            </optgroup>
+            <option>Outros</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- Tabela -->
+      <div class="table-card">
+        <table id="tabela">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Tipo</th>
+              <th>Valor</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <p id="empty" class="empty-state" style="display:none">Nenhuma movimentação encontrada.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: nova movimentação -->
+  <div class="modal-overlay hidden" id="modal">
+    <div class="modal">
+      <h2>Nova Movimentação</h2>
+      <div id="modal-msg" class="msg"></div>
+
+      <form id="form-transaction">
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="t-type" required onchange="updateCategories()">
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Categoria</label>
+          <select id="t-category" required></select>
+        </div>
+        <div class="form-group">
+          <label>Valor (R$)</label>
+          <input type="number" id="t-amount" min="0.01" step="0.01" placeholder="0,00" required />
+        </div>
+        <div class="form-group">
+          <label>Data</label>
+          <input type="date" id="t-date" required />
+        </div>
+        <div class="form-group">
+          <label>Descrição <small style="font-weight:400">(opcional)</small></label>
+          <input type="text" id="t-description" placeholder="Ex: Conta de luz" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    requireAuth();
+
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    document.getElementById('user-name').textContent = user.name || '';
+
+    // Inicializa filtro de mês com o mês atual
+    document.getElementById('filtro-mes').value = new Date().toISOString().slice(0, 7);
+
+    // Categorias por tipo
+    const CATEGORIES = {
+      entrada: ['Salário', 'Extra', 'Reembolso', 'Outros'],
+      saida:   ['Mercado', 'Transporte', 'Casa', 'Internet', 'Lazer', 'Saúde', 'Restaurante', 'Carro', 'Outros'],
+    };
+
+    function updateCategories() {
+      const type = document.getElementById('t-type').value;
+      const sel  = document.getElementById('t-category');
+      sel.innerHTML = CATEGORIES[type].map(c => `<option>${c}</option>`).join('');
+    }
+
+    // Carrega categorias iniciais
+    updateCategories();
+
+    // Define data padrão como hoje
+    document.getElementById('t-date').value = new Date().toISOString().slice(0, 10);
+
+    // ===== MODAL =====
+    function openModal() {
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal-msg').className = 'msg';
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('form-transaction').reset();
+      updateCategories();
+      document.getElementById('t-date').value = new Date().toISOString().slice(0, 10);
+    }
+
+    // Fecha modal ao clicar fora
+    document.getElementById('modal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeModal();
+    });
+
+    // ===== SALVAR MOVIMENTAÇÃO =====
+    document.getElementById('form-transaction').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('btn-save');
+      const msg = document.getElementById('modal-msg');
+      msg.className = 'msg';
+      btn.disabled = true;
+
+      try {
+        await api.post('/transactions', {
+          type:        document.getElementById('t-type').value,
+          category:    document.getElementById('t-category').value,
+          amount:      document.getElementById('t-amount').value,
+          date:        document.getElementById('t-date').value,
+          description: document.getElementById('t-description').value,
+        });
+
+        closeModal();
+        loadTransactions();
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = 'msg error';
+        btn.disabled = false;
+      }
+    });
+
+    // ===== LISTAR =====
+    async function loadTransactions() {
+      const month    = document.getElementById('filtro-mes').value;
+      const type     = document.getElementById('filtro-tipo').value;
+      const category = document.getElementById('filtro-categoria').value;
+
+      const params = new URLSearchParams();
+      if (month)    params.set('month', month);
+      if (type)     params.set('type', type);
+      if (category) params.set('category', category);
+
+      const list  = await api.get(`/transactions?${params}`);
+      const tbody = document.getElementById('tbody');
+      const empty = document.getElementById('empty');
+
+      if (!list.length) {
+        document.getElementById('tabela').style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+
+      document.getElementById('tabela').style.display = 'table';
+      empty.style.display = 'none';
+
+      tbody.innerHTML = list.map(t => `
+        <tr>
+          <td>${formatDate(t.date)}</td>
+          <td>${t.description || '—'}</td>
+          <td>${t.category}</td>
+          <td><span class="badge badge-${t.type}">${t.type === 'entrada' ? 'Entrada' : 'Saída'}</span></td>
+          <td class="valor-${t.type}">${t.type === 'entrada' ? '+' : '-'} ${formatMoney(t.amount)}</td>
+          <td>
+            <button class="btn btn-danger" onclick="deleteTransaction(${t.id})">Excluir</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // ===== EXCLUIR =====
+    async function deleteTransaction(id) {
+      if (!confirm('Excluir esta movimentação?')) return;
+      await api.del(`/transactions/${id}`);
+      loadTransactions();
+    }
+
+    // Recarrega ao mudar filtros
+    ['filtro-mes', 'filtro-tipo', 'filtro-categoria'].forEach(id => {
+      document.getElementById(id).addEventListener('change', loadTransactions);
+    });
+
+    loadTransactions();
+  </script>
+</body>
+</html>

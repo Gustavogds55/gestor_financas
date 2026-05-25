@@ -1,0 +1,11 @@
+// authRoutes.js — Rotas públicas de autenticação
+
+const router = require('express').Router();
+const auth = require('../middleware/authMiddleware');
+const { register, login, me } = require('../controllers/authController');
+
+router.post('/register', register);
+router.post('/login', login);
+router.get('/me', auth, me); // rota protegida
+
+module.exports = router;

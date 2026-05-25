@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Finanças</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">💰 Finanças</div>
+      <div class="sidebar-user">
+        Olá, <strong id="user-name">...</strong>
+      </div>
+      <nav>
+        <a href="dashboard.html" class="active">📊 Dashboard</a>
+        <a href="transactions.html">📋 Movimentações</a>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn btn-outline" style="width:100%" onclick="logout()">Sair</button>
+      </div>
+    </aside>
+
+    <!-- Conteúdo -->
+    <main class="main-content">
+      <h1 class="page-title">Dashboard</h1>
+
+      <!-- Cards de resumo -->
+      <div class="cards-grid">
+        <div class="card saldo">
+          <span>Saldo Atual</span>
+          <strong id="saldo">R$ 0,00</strong>
+        </div>
+        <div class="card entrada">
+          <span>Entradas do Mês</span>
+          <strong id="entradas">R$ 0,00</strong>
+        </div>
+        <div class="card saida">
+          <span>Saídas do Mês</span>
+          <strong id="saidas">R$ 0,00</strong>
+        </div>
+        <div class="card balanco">
+          <span>Balanço do Mês</span>
+          <strong id="balanco">R$ 0,00</strong>
+        </div>
+      </div>
+
+      <!-- Últimas movimentações -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2>Últimas Movimentações</h2>
+          <a href="transactions.html" class="btn btn-outline" style="padding:7px 16px;font-size:.85rem">Ver todas</a>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Tipo</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-recentes"></tbody>
+        </table>
+        <p id="empty-recentes" class="empty-state" style="display:none">Nenhuma movimentação ainda.</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    requireAuth();
+
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    document.getElementById('user-name').textContent = user.name || '';
+
+    async function loadDashboard() {
+      const month = new Date().toISOString().slice(0, 7);
+      const data  = await api.get(`/transactions/summary?month=${month}`);
+
+      document.getElementById('saldo').textContent    = formatMoney(data.saldoGeral);
+      document.getElementById('entradas').textContent = formatMoney(data.totalEntradas);
+      document.getElementById('saidas').textContent   = formatMoney(data.totalSaidas);
+      document.getElementById('balanco').textContent  = formatMoney(data.balanco);
+
+      const tbody = document.getElementById('tbody-recentes');
+      const empty = document.getElementById('empty-recentes');
+
+      if (!data.recentes.length) {
+        tbody.closest('table').style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+
+      tbody.innerHTML = data.recentes.map(t => `
+        <tr>
+          <td>${formatDate(t.date)}</td>
+          <td>${t.description || '—'}</td>
+          <td>${t.category}</td>
+          <td><span class="badge badge-${t.type}">${t.type === 'entrada' ? 'Entrada' : 'Saída'}</span></td>
+          <td class="valor-${t.type}">${t.type === 'entrada' ? '+' : '-'} ${formatMoney(t.amount)}</td>
+        </tr>
+      `).join('');
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
